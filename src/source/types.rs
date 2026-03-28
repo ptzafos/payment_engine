@@ -2,15 +2,14 @@ use eyre::ContextCompat;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
-use crate::core::types::Amount;
-use crate::core::types::BaseTx;
-use crate::core::types::Tx;
+use crate::core::types::{Amount, BaseTx, ClientId, Tx, TxId};
 
 #[derive(Deserialize)]
 pub(crate) struct TxCsvRow {
     r#type: TxCsvTypeRow,
-    client: u16,
-    tx: u32,
+    client: ClientId,
+    tx: TxId,
+    // TODO Custom deserializer to do String to Decimal or i128
     amount: Option<Decimal>,
 }
 

@@ -5,15 +5,21 @@ use serde::{Deserialize, Serialize};
 
 pub const SCALING: i64 = 10_000;
 
+pub type ClientId = u16;
+pub type TxId = u32;
+
 #[derive(Deserialize, Debug, Default)]
 pub struct BaseTx {
-    pub client: u16,
-    pub tx: u32,
+    pub client_id: ClientId,
+    pub tx: TxId,
 }
 
 impl BaseTx {
-    pub fn new(client: u16, tx: u32) -> Self {
-        Self { client, tx }
+    pub fn new(client: ClientId, tx: TxId) -> Self {
+        Self {
+            client_id: client,
+            tx,
+        }
     }
 }
 
@@ -49,17 +55,17 @@ pub enum Tx {
 }
 
 impl Tx {
-    fn client_id(&self) -> u16 {
+    pub fn client_id(&self) -> ClientId {
         match self {
             Tx::Deposit { base, .. }
             | Tx::Withdrawal { base, .. }
             | Tx::Dispute { base, .. }
             | Tx::Resolve { base, .. }
-            | Tx::Chargeback { base, .. } => base.client,
+            | Tx::Chargeback { base, .. } => base.client_id,
         }
     }
 
-    fn tx_id(&self) -> u32 {
+    pub fn tx_id(&self) -> TxId {
         match self {
             Tx::Deposit { base, .. }
             | Tx::Withdrawal { base, .. }
@@ -69,7 +75,7 @@ impl Tx {
         }
     }
 
-    fn amount(&self) -> Option<Amount> {
+    pub fn amount(&self) -> Option<Amount> {
         match self {
             Tx::Deposit { amount, .. } | Tx::Withdrawal { amount, .. } => Some(*amount),
             _ => None,
@@ -77,10 +83,11 @@ impl Tx {
     }
 }
 
-#[derive(Serialize, Debug)]
-struct Account {
-    available: Amount,
-    held: Amount,
-    total: Amount,
-    locked: bool,
+#[derive(Serialize, Debug, Clone, Default)]
+pub struct Account {
+    pub client_id: ClientId,
+    pub available: Amount,
+    pub held: Amount,
+    pub total: Amount,
+    pub locked: bool,
 }
