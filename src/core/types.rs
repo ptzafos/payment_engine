@@ -1,6 +1,6 @@
 use std::ops::{Add, AddAssign, Deref, Sub, SubAssign};
 
-use rust_decimal::{prelude::ToPrimitive, Decimal};
+use rust_decimal::{Decimal, prelude::ToPrimitive};
 use serde::{Deserialize, Serialize};
 
 use crate::collections::Map;
@@ -86,16 +86,6 @@ pub enum Tx {
 }
 
 impl Tx {
-    pub fn tx_id(&self) -> TxId {
-        match self {
-            Tx::Deposit { base, .. }
-            | Tx::Withdrawal { base, .. }
-            | Tx::Dispute { base }
-            | Tx::Resolve { base }
-            | Tx::Chargeback { base } => base.tx,
-        }
-    }
-
     pub fn client_id(&self) -> ClientId {
         match self {
             Tx::Deposit { base, .. }

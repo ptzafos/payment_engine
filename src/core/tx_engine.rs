@@ -5,16 +5,16 @@ use futures::future::join_all;
 use tokio::{sync::mpsc::Sender, task::JoinHandle};
 
 use crate::{
-    collections::Set,
     core::{
         tx_processor::TxProcessor,
-        types::{Account, Tx, TxId},
+        types::{Account, Tx},
     },
     source::tx_source::TxSource,
     storage::account_storage::AccountStorage,
 };
 
-const TX_PROCESSOR_BUFFER: usize = 128;
+const TX_PROCESSOR_BUFFER: usize = 1 << 12;
+const MAX_TX_PROCESSORS: usize = 8;
 
 pub(crate) struct TxEngineTask<A>
 where
@@ -32,7 +32,6 @@ where
     A: AccountStorage,
 {
     processors: Vec<TxEngineTask<A>>,
-    processed_txs: Set<TxId>,
     _state: PhantomData<S>,
 }
 
@@ -42,13 +41,12 @@ where
 {
     pub fn init(mut self) -> eyre::Result<TxEngine<A, Initialized>> {
         let n_processors = n_processors()?;
-        tracing::info!(n_processors, "tx processors = num_cpus - 1");
+        tracing::info!(n_processors, "tx processors initialized");
         for n in 0..n_processors {
             self.init_processor(n);
         }
         Ok(TxEngine {
             processors: self.processors,
-            processed_txs: self.processed_txs,
             _state: PhantomData,
         })
     }
@@ -77,10 +75,6 @@ where
         let tx_stream = source.into_stream_tx();
         let mut dispatched_count = 0usize;
         for tx in tx_stream {
-            if !self.filter_duplicate(&tx) {
-                tracing::debug!(tx_id = tx.tx_id(), "duplicate create transaction ignored");
-                continue;
-            }
             self.dispatch_record(tx).await;
             dispatched_count += 1;
         }
@@ -117,13 +111,6 @@ where
             tracing::error!(?e, dispatcher_id, "send error on dispatcher");
         }
     }
-
-    fn filter_duplicate(&mut self, tx: &Tx) -> bool {
-        match tx {
-            Tx::Deposit { .. } | Tx::Withdrawal { .. } => self.processed_txs.insert(tx.tx_id()),
-            Tx::Dispute { .. } | Tx::Resolve { .. } | Tx::Chargeback { .. } => true,
-        }
-    }
 }
 
 impl<A, S> TxEngine<A, S>
@@ -133,7 +120,6 @@ where
     pub fn new() -> Self {
         Self {
             processors: <_>::default(),
-            processed_txs: <_>::default(),
             _state: PhantomData,
         }
     }
@@ -142,25 +128,22 @@ where
 fn n_processors() -> eyre::Result<usize> {
     std::thread::available_parallelism()
         .map(|n| {
-            // safe as NonZero by design
             let n = n.get();
-            if n > 1 { n - 1 } else { 1 }
+            let workers = if n > 1 { n - 1 } else { 1 };
+            workers.min(MAX_TX_PROCESSORS)
         })
         .with_context(|| "unable to get available threads")
 }
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
-
     use crate::{
-        collections::Set,
         core::types::{Amount, BaseTx},
         source::tx_source::TxSource,
         storage::in_memory_account::InMemoryAccountStorage,
     };
 
-    use super::{Initialized, Tx, TxEngine};
+    use super::{Tx, TxEngine};
 
     const CLIENT_A: u16 = 1;
     const CLIENT_B: u16 = 2;
@@ -219,22 +202,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn filters_duplicate_create_transactions_only() {
-        let mut engine = TxEngine::<InMemoryAccountStorage, Initialized> {
-            processors: Vec::new(),
-            processed_txs: Set::default(),
-            _state: PhantomData,
-        };
-
-        let create = deposit(CLIENT_A, 11, 10_000);
-        let dispute = dispute(CLIENT_A, 11);
-
-        assert!(engine.filter_duplicate(&create));
-        assert!(!engine.filter_duplicate(&create));
-        assert!(engine.filter_duplicate(&dispute));
-    }
-
     #[tokio::test]
     async fn processes_source_end_to_end() {
         let source = VecTxSource {
@@ -266,8 +233,8 @@ mod tests {
     }
 
     #[test]
-    fn n_processors_is_at_least_one() {
+    fn n_processors_is_between_one_and_cap() {
         let processors = super::n_processors().expect("should detect processor count");
-        assert!(processors >= 1);
+        assert!((1..=super::MAX_TX_PROCESSORS).contains(&processors));
     }
 }
