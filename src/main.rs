@@ -16,11 +16,11 @@ struct Cli {
 async fn main() -> Result<()> {
     let args = Cli::parse();
 
-    fmt()
-        .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
-        )
-        .init();
+    // fmt()
+    //     .with_env_filter(
+    //         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+    //     )
+    //     .init();
 
     let file = File::open(&args.input)?;
     PaymentEngine::start_app(file).await?;

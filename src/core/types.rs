@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::ops::{Add, AddAssign, Deref, Sub, SubAssign};
 
 use rust_decimal::{Decimal, prelude::ToPrimitive};
 use serde::{Deserialize, Serialize};
@@ -23,17 +23,46 @@ impl BaseTx {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Amount(i64);
 
 impl Amount {
     pub fn from_dec(dec_amount: Decimal) -> Self {
-        Amount(
-            dec_amount
-                .to_i64()
-                .expect("to dec deserialization promised")
-                * SCALING,
-        )
+        let scaled = dec_amount
+            .checked_mul(Decimal::from(SCALING))
+            .expect("amount overflow while scaling");
+
+        let units = scaled.to_i64().expect("amount is out of i64 range");
+
+        Self(units)
+    }
+}
+
+impl Add for Amount {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl Sub for Amount {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self(self.0 - rhs.0)
+    }
+}
+
+impl AddAssign for Amount {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
+
+impl SubAssign for Amount {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
     }
 }
 

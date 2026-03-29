@@ -15,5 +15,6 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 tokio = { version = "1.50.0", features = ["full", "tokio-macros"] }
 hashbrown = "0.16.1"
 tokio-util = "0.7.18"
+futures = "0.3.32"
 
 [dev-dependencies]

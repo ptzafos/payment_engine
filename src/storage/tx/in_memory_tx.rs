@@ -9,6 +9,10 @@ pub struct InMemoryTxStorage {
 }
 
 impl TxStorage for InMemoryTxStorage {
+    fn contains(&mut self, tx: &Tx) -> bool {
+        self.storage.contains_key(&tx.tx_id())
+    }
+
     fn save(&mut self, tx: Tx) {
         self.storage.insert(tx.tx_id(), tx);
     }

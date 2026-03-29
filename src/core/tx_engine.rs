@@ -1,11 +1,15 @@
 use std::marker::PhantomData;
 
 use eyre::Context;
-use tokio::{sync::mpsc::Sender, task::JoinHandle};
+use futures::future::join_all;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    core::{tx_processor::TxProcessor, types::Tx},
+    core::{
+        tx_engine_task::TxEngineTask,
+        tx_processor::TxProcessor,
+        types::{Account, Tx},
+    },
     source::tx_source::TxSource,
     storage::{account::account_storage::AccountStorage, tx::tx_storage::TxStorage},
 };
@@ -21,23 +25,7 @@ where
     A: AccountStorage,
 {
     processors: Vec<TxEngineTask<T, A>>,
-    _state: PhantomData<S>, // add metrics for hot accounts
-}
-
-struct TxEngineTask<T, A>
-where
-    T: TxStorage,
-{
-    sender: Sender<Tx>,
-    handle: JoinHandle<(T, A)>,
-    c_token: CancellationToken,
-}
-
-impl<T, A> TxEngine<T, A>
-where
-    T: TxStorage,
-    A: AccountStorage,
-{
+    _state: PhantomData<S>,
 }
 
 impl<T, A> TxEngine<T, A, Uninitialized>
@@ -49,20 +37,24 @@ where
         let n_tx_processors = n_processors()?;
         tracing::info!(n_tx_processors, "tx processors = num_cpus - 1");
         for n in 0..n_tx_processors {
-            let (tx, rx) = tokio::sync::mpsc::channel::<Tx>(tx_processor_buffer());
-            let tx_processor = TxProcessor::<T, A>::new(n);
-            let c_token = CancellationToken::new();
-            let handle = tokio::spawn(tx_processor.spawn(rx, c_token.clone()));
-            self.processors.push(TxEngineTask {
-                sender: tx,
-                handle,
-                c_token,
-            });
+            self.init_processor(n);
         }
         Ok(TxEngine {
             processors: self.processors,
             _state: PhantomData,
         })
+    }
+
+    pub fn init_processor(&mut self, n_processor: usize) {
+        let (tx, rx) = tokio::sync::mpsc::channel::<Tx>(TX_PROCESSOR_BUFFER);
+        let tx_processor = TxProcessor::<T, A>::new(n_processor);
+        let stop_token = CancellationToken::new();
+        let handle = tokio::spawn(tx_processor.spawn(rx, stop_token.clone()));
+        self.processors.push(TxEngineTask {
+            sender: tx,
+            handle,
+            stop_token,
+        });
     }
 }
 
@@ -71,7 +63,7 @@ where
     T: TxStorage,
     A: AccountStorage,
 {
-    pub async fn process_tx_source<S>(&mut self, source: S) -> eyre::Result<()>
+    pub async fn process_tx_source<S>(&mut self, source: S) -> eyre::Result<Vec<Account>>
     where
         S: TxSource,
     {
@@ -79,7 +71,18 @@ where
         for tx in tx_stream {
             self.dispatch_record(tx).await;
         }
-        Ok(())
+        self.processors.iter_mut().for_each(|p| {
+            // std::mem::take(&mut p.sender);
+            p.stop_token.cancel();
+        });
+        let processors = std::mem::take(&mut self.processors);
+        let report = join_all(processors.into_iter().map(|p| p.handle).collect::<Vec<_>>())
+            .await
+            .into_iter()
+            .flatten()
+            .flat_map(|processor| processor.account_storage.report_state())
+            .collect::<Vec<_>>();
+        Ok(report)
     }
 
     fn routing_id(&self, tx: &Tx) -> usize {
@@ -88,10 +91,8 @@ where
 
     async fn dispatch_record(&mut self, tx: Tx) {
         let dispatcher_id = self.routing_id(&tx);
-        // to remove this copy no reason for only the log maybe?
-        let tx_id = tx.tx_id();
         if let Err(e) = self.processors[dispatcher_id].sender.send(tx).await {
-            tracing::error!(?e, "unable to process tx with id {}", tx_id);
+            tracing::error!(?e, dispatcher_id, "send error on dispatcher");
         }
     }
 }
@@ -118,8 +119,4 @@ fn n_processors() -> eyre::Result<usize> {
             if n > 1 { n - 1 } else { 1 }
         })
         .with_context(|| "unable to get available threads")
-}
-
-fn tx_processor_buffer() -> usize {
-    TX_PROCESSOR_BUFFER
 }

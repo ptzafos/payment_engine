@@ -5,7 +5,7 @@ use crate::{
 
 #[derive(Default)]
 pub struct InMemoryAccountStorage {
-    storage: hashbrown::HashMap<ClientId, Account>,
+    pub storage: hashbrown::HashMap<ClientId, Account>,
 }
 
 impl AccountStorage for InMemoryAccountStorage {
@@ -13,13 +13,17 @@ impl AccountStorage for InMemoryAccountStorage {
         self.storage.insert(account.client_id, account);
     }
 
-    fn retrieve(&mut self, client_id: ClientId) -> Account {
+    fn get_account_by_id(&mut self, client_id: &ClientId) -> Account {
         self.storage
-            .entry(client_id)
+            .entry(*client_id)
             .or_insert(Account {
-                client_id,
+                client_id: *client_id,
                 ..<_>::default()
             })
             .clone()
+    }
+
+    fn report_state(&self) -> Vec<Account> {
+        self.storage.values().cloned().collect::<Vec<_>>()
     }
 }
