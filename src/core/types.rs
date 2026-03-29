@@ -1,7 +1,9 @@
 use std::ops::{Add, AddAssign, Deref, Sub, SubAssign};
 
-use rust_decimal::{Decimal, prelude::ToPrimitive};
+use rust_decimal::{prelude::ToPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
+
+use crate::collections::Map;
 
 pub const SCALING: i64 = 10_000;
 
@@ -84,30 +86,23 @@ pub enum Tx {
 }
 
 impl Tx {
-    pub fn client_id(&self) -> ClientId {
-        match self {
-            Tx::Deposit { base, .. }
-            | Tx::Withdrawal { base, .. }
-            | Tx::Dispute { base, .. }
-            | Tx::Resolve { base, .. }
-            | Tx::Chargeback { base, .. } => base.client_id,
-        }
-    }
-
     pub fn tx_id(&self) -> TxId {
         match self {
             Tx::Deposit { base, .. }
             | Tx::Withdrawal { base, .. }
-            | Tx::Dispute { base, .. }
-            | Tx::Resolve { base, .. }
-            | Tx::Chargeback { base, .. } => base.tx,
+            | Tx::Dispute { base }
+            | Tx::Resolve { base }
+            | Tx::Chargeback { base } => base.tx,
         }
     }
 
-    pub fn amount(&self) -> Option<Amount> {
+    pub fn client_id(&self) -> ClientId {
         match self {
-            Tx::Deposit { amount, .. } | Tx::Withdrawal { amount, .. } => Some(*amount),
-            _ => None,
+            Tx::Deposit { base, .. }
+            | Tx::Withdrawal { base, .. }
+            | Tx::Dispute { base }
+            | Tx::Resolve { base }
+            | Tx::Chargeback { base } => base.client_id,
         }
     }
 }
@@ -119,4 +114,11 @@ pub struct Account {
     pub held: Amount,
     pub total: Amount,
     pub locked: bool,
+}
+
+#[derive(Debug, Default)]
+pub struct AccountState {
+    pub account: Account,
+    pub deposits: Map<TxId, Amount>,
+    pub open_disputes: Map<TxId, Amount>,
 }

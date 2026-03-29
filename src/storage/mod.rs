@@ -1,2 +1,2 @@
-pub mod account;
-pub mod tx;
+pub mod account_storage;
+pub mod in_memory_account;

@@ -3,6 +3,11 @@ name = "payments_engine"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["hashbrown-collections"]
+hashbrown-collections = ["dep:hashbrown"]
+std-collections = []
+
 [dependencies]
 rust_decimal = "1.40.0"
 serde = { version = "1.0.228", features = ["derive"] }
@@ -13,7 +18,7 @@ thiserror = "2.0.18"
 eyre = "0.6.12"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 tokio = { version = "1.50.0", features = ["full", "tokio-macros"] }
-hashbrown = "0.16.1"
+hashbrown = { version = "0.16.1", optional = true }
 tokio-util = "0.7.18"
 futures = "0.3.32"
 

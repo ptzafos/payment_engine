@@ -42,7 +42,7 @@ fn parse(csv_row_result: Result<TxCsvRow, csv::Error>) -> Option<Tx> {
 
     row.try_into()
         .map_err(|e| {
-            tracing::error!(?e, "Unable to parse row");
+            tracing::error!(?e, "Unable to convert csv row to transaction");
             e
         })
         .ok()

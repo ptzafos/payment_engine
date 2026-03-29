@@ -3,7 +3,7 @@ use std::{fs::File, path::PathBuf};
 use clap::Parser;
 use eyre::Result;
 use payments_engine::PaymentEngine;
-use tracing_subscriber::{EnvFilter, fmt};
+// use tracing_subscriber::{EnvFilter, fmt};
 
 #[derive(Debug, Parser)]
 struct Cli {
@@ -12,7 +12,6 @@ struct Cli {
 }
 
 #[tokio::main]
-// customize errors reminder
 async fn main() -> Result<()> {
     let args = Cli::parse();
 
