@@ -19,7 +19,7 @@ impl PaymentEngine {
     pub async fn start_app(file: File) -> eyre::Result<Vec<Account>> {
         let source = CsvFileTxSource::new(file);
         let tx_engine = TxEngine::<InMemoryAccountStorage>::new();
-        let mut tx_engine = tx_engine.init()?;
+        let tx_engine = tx_engine.init()?;
         let accounts = tx_engine.process_tx_source(source).await?;
         CsvStdoutSink.write_accounts(&accounts)?;
         Ok(accounts)
@@ -41,7 +41,11 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("system clock should be after unix epoch")
             .as_nanos();
-        std::env::temp_dir().join(format!("payments_engine_e2e_{}_{}.csv", std::process::id(), nanos))
+        std::env::temp_dir().join(format!(
+            "payments_engine_e2e_{}_{}.csv",
+            std::process::id(),
+            nanos
+        ))
     }
 
     #[tokio::test]

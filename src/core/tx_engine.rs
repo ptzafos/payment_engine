@@ -65,7 +65,7 @@ impl<A> TxEngine<A, Initialized>
 where
     A: AccountStorage,
 {
-    pub async fn process_tx_source<S>(&mut self, source: S) -> eyre::Result<Vec<Account>>
+    pub async fn process_tx_source<S>(mut self, source: S) -> eyre::Result<Vec<Account>>
     where
         S: TxSource,
     {
@@ -241,7 +241,7 @@ mod tests {
             txs: sample_transactions(),
         };
 
-        let mut engine = TxEngine::<InMemoryAccountStorage>::new()
+        let engine = TxEngine::<InMemoryAccountStorage>::new()
             .init()
             .expect("engine init should succeed");
 
