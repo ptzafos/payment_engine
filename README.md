@@ -1,4 +1,4 @@
-# Payments Engine
+# Payment Engine
 
 A Rust payments engine that reads transactions from CSV, processes account state transitions, and writes final account balances as CSV.
 
@@ -71,7 +71,6 @@ Invalid operations are ignored (for example: missing referenced tx, wrong lifecy
 - Uses a multi-worker processing model:
   - transactions are routed by `client_id % worker_count`
   - all transactions for one client stay on the same worker
-- Global duplicate filtering is applied to create transactions (`deposit`/`withdrawal`) using tx id.
 
 ## Data structure backend switching
 
