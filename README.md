@@ -186,6 +186,10 @@ Artifact:
 
 - `flamegraph_128_buffer_15_workers.svg`
 
+Preview:
+
+![Baseline flamegraph](flamegraph_128_buffer_15_workers.svg)
+
 ### Updated run (`flamegraph_4096_buffer_no_dup_filter_8_workers.svg`)
 
 Setup differences:
@@ -197,3 +201,7 @@ Setup differences:
 Artifact:
 
 - `flamegraph_4096_buffer_no_dup_filter_8_workers.svg`
+
+Preview:
+
+![Updated flamegraph](flamegraph_4096_buffer_no_dup_filter_8_workers.svg)
